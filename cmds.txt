@@ -1,2 +1,2 @@
 cat Cargo.toml
-cat src/main.rs
+-d '[A-Z]' ||  cat src/main.rs | tr '\n' ' '

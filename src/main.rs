@@ -1,3 +1,5 @@
+mod cmds;
+
 use std::{
     error::Error,
     io::{BufRead, stdin, stdout, Write},
@@ -12,47 +14,32 @@ use tokio::{
 use tokio_stream::StreamExt;
 use regex_chunker::stream::ByteChunker;
 
+use cmds::{Cmd, CmdOpts};
+
 static SHELL: &str = "sh";
 #[cfg(unix)]
 static NEWLINE: &[u8] = &[10];
 #[cfg(windows)]
 static NEWLINE: &[u8] = &[13, 10];
 
-fn get_commands() -> Result<Vec<String>, String> {
-    let mut v: Vec<String> = Vec::new();
-    for line in stdin().lock().lines().map(|r| r.unwrap()) {
+fn get_commands() -> Result<Vec<Cmd>, String> {
+    let mut v: Vec<Cmd> = Vec::new();
+    for (n, line_res) in stdin().lock().lines().enumerate() {
+        let line = line_res.map_err(|e| format!(
+            "error reading line {} from stdin: {}", &n, &e
+        ))?;
+
         if line.trim() == "" {
             break;
         } else {
-            v.push(line);
+            let cmd = Cmd::from_line(&line).map_err(|e| format!(
+                "error parsing command from line {}: {}", &n, &e
+            ))?;
+            v.push(cmd);
         }
     }
+
     Ok(v)
-}
-
-async fn wrapped_spawner(cmd: &str, tx: Sender<Vec<u8>>) -> Result<(), Box<dyn Error>> {
-    let mut child = Command::new(SHELL)
-        .arg("-c")
-        .arg(cmd)
-        .stdout(Stdio::piped())
-        .spawn()?;
-
-    let stdout = child.stdout.take().ok_or("no stdout handle!")?;
-
-    let mut chunker = ByteChunker::new(stdout, r#"\r?\n"#)?;
-    while let Some(chunk) = chunker.next().await {
-        tx.send(chunk?).await?;
-    }
-    child.wait().await?;
-
-    Ok(())
-
-}
-
-async fn spawn_process(cmd: String, tx: Sender<Vec<u8>>) {
-    if let Err(e) = wrapped_spawner(&cmd, tx).await {
-        eprintln!("error in child process {:?}: {}", &cmd, &e);
-    }
 }
 
 async fn read_loop(mut outputs: Vec<Receiver<Vec<u8>>>) -> std::io::Result<()> {
@@ -86,12 +73,17 @@ fn main() -> Result<(), String> {
 
         let mut outputs: Vec<_> = cmds
             .into_iter()
-            .map(|cmd| {
-                let (tx, rx) = channel::<Vec<u8>>(1);
-                tokio::spawn(async move {
-                    spawn_process(cmd, tx).await;
-                });
-                rx
+            .enumerate()
+            .filter_map(|(n, cmd)| {
+                match cmd.spawn() {
+                    Ok(rx) => Some(rx),
+                    Err(e) => {
+                        eprintln!("error spawning process {} {:?}: {}",
+                            &n, &cmd, &e
+                        );
+                        None
+                    },
+                }
             })
             .collect();
 
