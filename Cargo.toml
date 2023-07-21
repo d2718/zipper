@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-regex-chunker = { git = "https://github.com/d2718/regex-chunker.git" }
-tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread", "process"] }
+regex-chunker = { git = "https://github.com/d2718/regex-chunker.git", features = ["async"] }
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread", "process", "sync"] }
 tokio-stream = { version = "0.1.14", default-features = false }
