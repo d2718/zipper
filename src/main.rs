@@ -1,20 +1,13 @@
 mod cmds;
 
-use std::{
-    error::Error,
-    io::{BufRead, stdin, stdout, Write},
-    process::Stdio,
-};
+use std::io::{stdin, stdout, BufRead, Write};
 
 use tokio::{
-    process::Command,
     runtime,
-    sync::mpsc::{channel, Sender, Receiver},
+    sync::mpsc::Receiver,
 };
-use tokio_stream::StreamExt;
-use regex_chunker::stream::ByteChunker;
 
-use cmds::{Cmd, CmdOpts};
+use cmds::Cmd;
 
 static SHELL: &str = "sh";
 #[cfg(unix)]
@@ -25,16 +18,13 @@ static NEWLINE: &[u8] = &[13, 10];
 fn get_commands() -> Result<Vec<Cmd>, String> {
     let mut v: Vec<Cmd> = Vec::new();
     for (n, line_res) in stdin().lock().lines().enumerate() {
-        let line = line_res.map_err(|e| format!(
-            "error reading line {} from stdin: {}", &n, &e
-        ))?;
+        let line = line_res.map_err(|e| format!("error reading line {} from stdin: {}", &n, &e))?;
 
         if line.trim() == "" {
             break;
         } else {
-            let cmd = Cmd::from_line(&line).map_err(|e| format!(
-                "error parsing command from line {}: {}", &n, &e
-            ))?;
+            let cmd = Cmd::from_line(&line)
+                .map_err(|e| format!("error parsing command from line {}: {}", &n, &e))?;
             v.push(cmd);
         }
     }
@@ -52,8 +42,10 @@ async fn read_loop(mut outputs: Vec<Receiver<Vec<u8>>>) -> std::io::Result<()> {
                 Some(v) => {
                     stdout.write_all(&v)?;
                     stdout.write_all(NEWLINE)?;
-                },
-                None => { done = true; },
+                }
+                None => {
+                    done = true;
+                }
             }
         }
         stdout.flush()?;
@@ -67,22 +59,18 @@ fn main() -> Result<(), String> {
 
     let rt = runtime::Builder::new_current_thread()
         .enable_io()
-        .build().map_err(|e| format!("unable to build runtime: {}", &e))?;
+        .build()
+        .map_err(|e| format!("unable to build runtime: {}", &e))?;
 
     rt.block_on(async {
-
-        let mut outputs: Vec<_> = cmds
+        let outputs: Vec<_> = cmds
             .into_iter()
             .enumerate()
-            .filter_map(|(n, cmd)| {
-                match cmd.spawn() {
-                    Ok(rx) => Some(rx),
-                    Err(e) => {
-                        eprintln!("error spawning process {} {:?}: {}",
-                            &n, &cmd, &e
-                        );
-                        None
-                    },
+            .filter_map(|(n, cmd)| match cmd.spawn() {
+                Ok(rx) => Some(rx),
+                Err(e) => {
+                    eprintln!("error spawning process {} {:?}: {}", &n, &cmd, &e);
+                    None
                 }
             })
             .collect();
