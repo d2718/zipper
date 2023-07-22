@@ -1,2 +1,2 @@
-cat Cargo.toml
-cat src/main.rs
+-t 5 || cat Cargo.toml
+-s 20 -t 5 || cat src/main.rs
