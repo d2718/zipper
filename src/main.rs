@@ -12,6 +12,20 @@ static NEWLINE: &[u8] = &[10];
 #[cfg(windows)]
 static NEWLINE: &[u8] = &[13, 10];
 
+static PREFIX_OPTION_HELP: &str = r#"
+[OPTIONS || ] COMMAND_LINE
+
+Options:
+  -s, --skip <N>
+          Skip the first <N> lines of output.
+
+  -t, --take <N>
+          Use only <N? lines of output.
+
+  -d, --delimiter <REGEX>
+          Use <REGEX> as a delimiter (instead of \r?\n).
+"#;
+
 /// Controls how zipper behaves when commands terminate after
 /// different amounts of output.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
@@ -34,6 +48,9 @@ struct Cfg {
     /// Use more threads.
     #[arg(short, long, default_value_t = false)]
     threads: bool,
+    /// Print the command-line prefix options
+    #[arg(short = 'H', long = "command-help", default_value_t = false)]
+    commands: bool
 }
 
 /**
@@ -145,6 +162,10 @@ fn run_local(cmds: Vec<Cmd>, cfg: Cfg) -> Result<(), Box<dyn Error>> {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cfg = Cfg::parse();
+    if cfg.commands {
+        println!("{}", PREFIX_OPTION_HELP);
+        std::process::exit(0);
+    }
     let cmds = get_commands().unwrap();
 
     if cfg.threads {

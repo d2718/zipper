@@ -130,7 +130,7 @@ y
 
 The `-e ignore` or `-e blank` will cause it to continue until the last
 command has exited, ignoring the terminated commands or inserting
-blank lined where their output would otherwise be.
+blank lines where their output would otherwise be.
 
 ```text
 $ zipper -e blank
@@ -208,3 +208,12 @@ Debian
 6.1.37-1
 (2023-07-03)
 ```
+
+## Big But
+
+(with one 't')
+
+This only works on systems with a POSIX-style `sh` shell.
+
+This might change one day, but these kinds of pipe-oriented
+command-line tools are way less useful on Windows.
